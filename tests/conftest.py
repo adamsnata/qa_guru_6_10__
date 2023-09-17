@@ -1,11 +1,12 @@
 import os
-import pytest
-from selenium.webdriver.chrome.options import Options
-from selene import Browser, Config, browser
-from selenium import webdriver
-from utils import attach
 
-path_picture = os.path.abspath(os.path.join(os.path.dirname(__file__), '../resources'))
+import pytest
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selene import Browser, Config
+from dotenv import load_dotenv
+
+from utils import attach
 
 DEFAULT_BROWSER_VERSION = "100.0"
 
@@ -17,14 +18,13 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope='session', autouse=True)
+def load_env():
+    load_dotenv()
+
+
+@pytest.fixture(scope='function')
 def setup_browser(request):
-    browser.config.window_width = 1920
-    browser.config.window_height = 1080
-    browser.config.timeout = 15
-
-
-
     browser_version = request.config.getoption('--browser_version')
     browser_version = browser_version if browser_version != "" else DEFAULT_BROWSER_VERSION
     options = Options()
@@ -38,11 +38,14 @@ def setup_browser(request):
     }
     options.capabilities.update(selenoid_capabilities)
 
+    login = os.getenv('LOGIN')
+    password = os.getenv('PASSWORD')
+
     driver = webdriver.Remote(
-        command_executor=f"https://user1:1234@selenoid.autotests.cloud/wd/hub",
+        command_executor=f"https://{login}:{password}@selenoid.autotests.cloud/wd/hub",
         options=options
     )
-    browser.config.driver = driver
+    browser = Browser(Config(driver))
 
     yield browser
 
@@ -50,5 +53,4 @@ def setup_browser(request):
     attach.add_screenshot(browser)
     attach.add_logs(browser)
     attach.add_video(browser)
-
     browser.quit()
